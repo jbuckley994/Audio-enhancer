@@ -1,0 +1,36 @@
+# ─── Web framework ────────────────────────────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+
+# ─── Audio I/O & signal processing ───────────────────────────────────────────
+librosa==0.10.2
+soundfile==0.12.1
+numpy==1.26.4
+scipy==1.13.1
+
+# ─── Noise reduction ──────────────────────────────────────────────────────────
+noisereduce==3.0.2
+
+# ─── Speech-to-text ───────────────────────────────────────────────────────────
+openai-whisper==20231117
+
+# ─── Deep learning (for source separation) ────────────────────────────────────
+torch==2.3.1
+torchaudio==2.3.1
+
+# ─── Source separation (optional — large download ~1.5GB) ─────────────────────
+# Uncomment to enable Demucs:
+# demucs==4.0.1
+
+# ─── VAD ──────────────────────────────────────────────────────────────────────
+webrtcvad==2.0.10
+
+# ─── LLM API clients (optional — for AI command parsing) ─────────────────────
+anthropic==0.34.0
+# openai==1.45.0   # uncomment if using OpenAI
+
+# ─── Utilities ────────────────────────────────────────────────────────────────
+pydantic==2.8.2
+python-dotenv==1.0.1
+tqdm==4.66.5

@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AudioEnhancer — Recover Distant Voices</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0b0d;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #1e2530;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --success: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient glow background */
+  body::before {
+    content: '';
+    position: fixed;
+    width: 600px; height: 600px;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(0,229,255,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  header h1 {
+    font-family: var(--sans);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text);
+  }
+
+  header .tagline {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-left: auto;
+  }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .hero h2 {
+    font-family: var(--sans);
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #e2e8f0 30%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    color: var(--muted);
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .card-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Drop zone ── */
+  .drop-zone {
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.03);
+  }
+
+  .drop-zone.drag-over {
+    transform: scale(1.01);
+  }
+
+  .drop-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .drop-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    display: block;
+    opacity: 0.7;
+  }
+
+  .drop-zone .primary-text {
+    font-family: var(--sans);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .drop-zone .secondary-text {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .file-selected {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0,229,255,0.05);
+    border: 1px solid rgba(0,229,255,0.2);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 16px;
+    font-size: 0.8rem;
+  }
+
+  .file-selected.visible { display: flex; }
+  .file-selected .file-name { color: var(--accent); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-selected .file-size { color: var(--muted); flex-shrink: 0; }
+
+  /* ── Command input ── */
+  .command-area {
+    position: relative;
+  }
+
+  .command-area label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+
+  .command-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  .command-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0,229,255,0.08);
+  }
+
+  /* Preset chips */
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .preset-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 0.7rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--mono);
+    letter-spacing: 0.03em;
+  }
+
+  .preset-chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,229,255,0.05);
+  }
+
+  /* ── Options grid ── */
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 600px) { .options-grid { grid-template-columns: 1fr; } }
+
+  .option-item label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .option-item select,
+  .option-item input[type=range] {
+    width: 100%;
+  }
+
+  .option-item select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .range-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    flex: 1;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,229,255,0.5);
+  }
+
+  .range-val {
+    font-size: 0.75rem;
+    color: var(--accent);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  /* Toggle switch */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .toggle {
+    position: relative;
+    width: 40px; height: 22px;
+    flex-shrink: 0;
+  }
+
+  .toggle input { display: none; }
+
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .toggle-thumb {
+    position: absolute;
+    width: 16px; height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: transform 0.2s;
+    pointer-events: none;
+  }
+
+  .toggle input:checked + .toggle-track { background: var(--accent); }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+  /* ── Submit button ── */
+  .btn-process {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #00b4d8);
+    border: none;
+    border-radius: 8px;
+    color: #0a0b0d;
+    font-family: var(--sans);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+
+  .btn-process:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(0,229,255,0.25);
+  }
+
+  .btn-process:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ── Progress panel ── */
+  #progress-panel {
+    display: none;
+  }
+
+  #progress-panel.visible { display: block; }
+
+  .progress-stages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .stage-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.78rem;
+  }
+
+  .stage-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+
+  .stage-dot.active {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse-dot 1s ease-in-out infinite;
+  }
+
+  .stage-dot.done { background: var(--success); }
+
+  @keyframes pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.7; }
+  }
+
+  .stage-name { color: var(--muted); flex: 1; }
+  .stage-name.active { color: var(--text); }
+  .stage-name.done { color: var(--success); }
+
+  .progress-bar-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    box-shadow: 0 0 8px rgba(0,229,255,0.4);
+    width: 0%;
+  }
+
+  .progress-pct {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .job-id-display {
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: var(--mono);
+  }
+
+  /* Waveform animation */
+  .waveform {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 32px;
+    margin: 16px auto;
+    width: fit-content;
+  }
+
+  .wave-bar {
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+    animation: wave 1.2s ease-in-out infinite;
+    opacity: 0.7;
+  }
+
+  @keyframes wave {
+    0%, 100% { height: 4px; opacity: 0.4; }
+    50% { height: 28px; opacity: 1; }
+  }
+
+  /* ── Results panel ── */
+  #results-panel { display: none; }
+  #results-panel.visible { display: block; }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 600px) { .result-grid { grid-template-columns: 1fr; } }
+
+  .result-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .result-card .result-icon { font-size: 2rem; margin-bottom: 10px; display: block; }
+  .result-card h4 { font-family: var(--sans); font-size: 0.9rem; margin-bottom: 6px; }
+  .result-card p { font-size: 0.72rem; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+
+  .btn-download {
+    display: inline-block;
+    padding: 8px 20px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .btn-download:hover {
+    background: rgba(0,229,255,0.1);
+    box-shadow: 0 0 12px rgba(0,229,255,0.2);
+  }
+
+  /* ── Transcript preview ── */
+  .transcript-preview {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 16px;
+  }
+
+  .transcript-preview h4 {
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    margin-bottom: 14px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .transcript-seg {
+    display: flex;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .transcript-seg:last-child { border-bottom: none; }
+
+  .seg-time {
+    color: var(--accent);
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    padding-top: 2px;
+    min-width: 80px;
+  }
+
+  /* ── Error state ── */
+  .error-banner {
+    display: none;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 0.8rem;
+    color: #fca5a5;
+    margin-top: 16px;
+  }
+
+  .error-banner.visible { display: block; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 40px 24px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    border-top: 1px solid var(--border);
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🎙</div>
+  <h1>AudioEnhancer</h1>
+  <span class="tagline">AI-powered distant voice recovery</span>
+</header>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h2>Recover voices from<br>impossible recordings</h2>
+    <p>Upload difficult audio — voices through walls, distant conversations, high-noise environments — and let AI recover what was said.</p>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="card-label">01 — Upload Audio</div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".wav,.mp3,.m4a,.flac,.ogg,.aac,.mp4,.webm">
+      <span class="drop-icon">⬆</span>
+      <div class="primary-text">Drop audio file here</div>
+      <div class="secondary-text">WAV · MP3 · M4A · FLAC · OGG · AAC &nbsp;·&nbsp; Up to several hours</div>
+    </div>
+    <div class="file-selected" id="fileSelected">
+      <span>🎵</span>
+      <span class="file-name" id="fileName"></span>
+      <span class="file-size" id="fileSize"></span>
+    </div>
+  </div>
+
+  <!-- Command -->
+  <div class="card">
+    <div class="card-label">02 — Describe What You Need</div>
+    <div class="command-area">
+      <label>Natural language instruction</label>
+      <textarea class="command-input" id="commandInput" placeholder="e.g. Enhance the distant voices, they're behind a door. Heavy noise reduction. Transcribe everything.">Enhance distant voices and reduce background noise. Transcribe the speech.</textarea>
+    </div>
+    <div class="presets">
+      <div class="preset-chip" onclick="setCommand('Enhance distant voices behind a wall, heavy noise reduction, transcribe')">🚪 Voices through wall</div>
+      <div class="preset-chip" onclick="setCommand('Remove loud foreground noise, recover background conversation, gentle on weak signals')">🔇 Remove foreground noise</div>
+      <div class="preset-chip" onclick="setCommand('Boost faint speech, preserve weak signals, minimal noise reduction')">🔊 Boost faint speech</div>
+      <div class="preset-chip" onclick="setCommand('Transcribe only, light enhancement')">📝 Transcribe only</div>
+      <div class="preset-chip" onclick="setCommand('Maximum noise reduction, heavy voice boost, recover everything possible')">⚡ Maximum recovery</div>
+    </div>
+  </div>
+
+  <!-- Options -->
+  <div class="card">
+    <div class="card-label">03 — Processing Options</div>
+    <div class="options-grid">
+
+      <div class="option-item">
+        <label>Whisper Model (Transcription Quality)</label>
+        <select id="whisperModel">
+          <option value="tiny">Tiny — fastest, least accurate</option>
+          <option value="base" selected>Base — good balance</option>
+          <option value="small">Small — better accuracy</option>
+          <option value="medium">Medium — high accuracy</option>
+          <option value="large">Large — best accuracy (slow)</option>
+        </select>
+      </div>
+
+      <div class="option-item">
+        <label>Source Separation Model</label>
+        <select id="sepModel">
+          <option value="none">None — skip (faster)</option>
+          <option value="demucs">Demucs — isolate vocals</option>
+        </select>
+      </div>
+
+      <div class="option-item">
+        <label>Noise Reduction Strength</label>
+        <div class="range-row">
+          <input type="range" id="noiseStrength" min="0" max="1" step="0.05" value="0.75">
+          <span class="range-val" id="noiseStrengthVal">75%</span>
+        </div>
+      </div>
+
+      <div class="option-item">
+        <label>Voice Boost (dB)</label>
+        <div class="range-row">
+          <input type="range" id="voiceBoost" min="0" max="20" step="1" value="6">
+          <span class="range-val" id="voiceBoostVal">6dB</span>
+        </div>
+      </div>
+
+      <div class="option-item">
+        <label>Transcription</label>
+        <div class="toggle-row">
+          <span style="font-size:0.78rem">Include transcript output</span>
+          <label class="toggle">
+            <input type="checkbox" id="transcribeToggle" checked>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+
+      <div class="option-item">
+        <label>Preserve Weak Signals</label>
+        <div class="toggle-row">
+          <span style="font-size:0.78rem">Protect faint voices during denoising</span>
+          <label class="toggle">
+            <input type="checkbox" id="preserveWeak" checked>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <button class="btn-process" id="processBtn" onclick="startProcessing()" disabled>
+    Process Audio
+  </button>
+
+  <!-- Error -->
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- Progress -->
+  <div class="card" id="progress-panel">
+    <div class="card-label">Processing</div>
+
+    <div class="waveform" id="waveform">
+      <div class="wave-bar" style="animation-delay:0s"></div>
+      <div class="wave-bar" style="animation-delay:0.1s"></div>
+      <div class="wave-bar" style="animation-delay:0.2s"></div>
+      <div class="wave-bar" style="animation-delay:0.3s"></div>
+      <div class="wave-bar" style="animation-delay:0.4s"></div>
+      <div class="wave-bar" style="animation-delay:0.3s"></div>
+      <div class="wave-bar" style="animation-delay:0.2s"></div>
+      <div class="wave-bar" style="animation-delay:0.1s"></div>
+      <div class="wave-bar" style="animation-delay:0s"></div>
+    </div>
+
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-pct" id="progressPct">0%</div>
+
+    <div class="progress-stages" id="stagesContainer" style="margin-top:20px">
+      <div class="stage-row" data-stage="preprocessing">
+        <div class="stage-dot"></div>
+        <span class="stage-name">Preprocessing & normalization</span>
+      </div>
+      <div class="stage-row" data-stage="chunking">
+        <div class="stage-dot"></div>
+        <span class="stage-name">Chunking for long-file processing</span>
+      </div>
+      <div class="stage-row" data-stage="enhancing">
+        <div class="stage-dot"></div>
+        <span class="stage-name">Noise reduction & voice enhancement</span>
+      </div>
+      <div class="stage-row" data-stage="assembling">
+        <div class="stage-dot"></div>
+        <span class="stage-name">Reassembling with crossfade</span>
+      </div>
+      <div class="stage-row" data-stage="saving">
+        <div class="stage-dot"></div>
+        <span class="stage-name">Saving enhanced audio</span>
+      </div>
+      <div class="stage-row" data-stage="transcribing">
+        <div class="stage-dot"></div>
+        <span class="stage-name">Transcribing speech (Whisper)</span>
+      </div>
+    </div>
+
+    <div class="job-id-display" id="jobIdDisplay"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="card" id="results-panel">
+    <div class="card-label">Results</div>
+
+    <div class="result-grid">
+      <div class="result-card">
+        <span class="result-icon">🔊</span>
+        <h4>Enhanced Audio</h4>
+        <p>Processed WAV with recovered voices,<br>reduced noise, and boosted clarity</p>
+        <a class="btn-download" id="downloadAudio" href="#" download>⬇ Download WAV</a>
+      </div>
+      <div class="result-card" id="transcriptCard">
+        <span class="result-icon">📄</span>
+        <h4>Transcript</h4>
+        <p>Timestamped speech-to-text with<br>best-effort reconstruction</p>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <a class="btn-download" id="downloadTranscriptJson" href="#" download>⬇ JSON</a>
+          <a class="btn-download" id="downloadTranscriptTxt" href="#" download>⬇ TXT</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="transcript-preview" id="transcriptPreview" style="display:none">
+      <h4>Transcript Preview</h4>
+      <div id="transcriptSegments"></div>
+    </div>
+
+    <button class="btn-process" onclick="resetUI()" style="margin-top:20px;background:transparent;border:1px solid var(--border);color:var(--muted)">
+      Process Another File
+    </button>
+  </div>
+
+</div>
+
+<footer>
+  AudioEnhancer · AI-powered audio recovery &nbsp;|&nbsp;
+  <a href="/docs" target="_blank">API Docs</a> &nbsp;|&nbsp;
+  FastAPI + Whisper + librosa + noisereduce
+</footer>
+
+<script>
+const API = '';  // Same origin; change to e.g. 'http://localhost:8000' for dev
+
+let currentJobId = null;
+let pollInterval = null;
+
+// ── File selection ────────────────────────────────────────────────────────────
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = formatBytes(file.size);
+  document.getElementById('fileSelected').classList.add('visible');
+  document.getElementById('processBtn').disabled = false;
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+// ── Sliders ───────────────────────────────────────────────────────────────────
+
+document.getElementById('noiseStrength').addEventListener('input', function() {
+  document.getElementById('noiseStrengthVal').textContent = Math.round(this.value * 100) + '%';
+});
+document.getElementById('voiceBoost').addEventListener('input', function() {
+  document.getElementById('voiceBoostVal').textContent = this.value + 'dB';
+});
+
+// ── Presets ───────────────────────────────────────────────────────────────────
+
+function setCommand(text) {
+  document.getElementById('commandInput').value = text;
+}
+
+// ── Process ───────────────────────────────────────────────────────────────────
+
+async function startProcessing() {
+  const file = fileInput.files[0];
+  if (!file) { showError('Please select an audio file first.'); return; }
+
+  hideError();
+  document.getElementById('processBtn').disabled = true;
+  showPanel('progress-panel');
+  hidePanel('results-panel');
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('command', document.getElementById('commandInput').value);
+  formData.append('transcribe', document.getElementById('transcribeToggle').checked);
+
+  try {
+    const res = await fetch(`${API}/upload-and-process`, { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Upload failed');
+    }
+    const data = await res.json();
+    currentJobId = data.job_id;
+    document.getElementById('jobIdDisplay').textContent = `Job: ${currentJobId}`;
+    startPolling();
+  } catch (e) {
+    showError(e.message);
+    document.getElementById('processBtn').disabled = false;
+    hidePanel('progress-panel');
+  }
+}
+
+function startPolling() {
+  pollInterval = setInterval(pollStatus, 1500);
+}
+
+async function pollStatus() {
+  try {
+    const res = await fetch(`${API}/status/${currentJobId}`);
+    const job = await res.json();
+
+    updateProgress(job.progress, job.stage, job.message);
+
+    if (job.status === 'completed') {
+      clearInterval(pollInterval);
+      await showResults(job);
+    } else if (job.status === 'failed') {
+      clearInterval(pollInterval);
+      showError(`Processing failed: ${job.error || job.message}`);
+      hidePanel('progress-panel');
+      document.getElementById('processBtn').disabled = false;
+    }
+  } catch (e) {
+    console.error('Poll error:', e);
+  }
+}
+
+function updateProgress(pct, stage, message) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = Math.round(pct) + '%';
+
+  // Update stage dots
+  const stageOrder = ['preprocessing','chunking','enhancing','assembling','saving','transcribing'];
+  const currentIdx = stageOrder.indexOf(stage);
+
+  document.querySelectorAll('.stage-row').forEach((row, i) => {
+    const dot = row.querySelector('.stage-dot');
+    const name = row.querySelector('.stage-name');
+    dot.className = 'stage-dot';
+    name.className = 'stage-name';
+    if (i < currentIdx) { dot.classList.add('done'); name.classList.add('done'); }
+    else if (i === currentIdx) { dot.classList.add('active'); name.classList.add('active'); }
+  });
+}
+
+async function showResults(job) {
+  hidePanel('progress-panel');
+  showPanel('results-panel');
+
+  const base = `${API}/download/${currentJobId}`;
+  document.getElementById('downloadAudio').href = `${base}/audio`;
+  document.getElementById('downloadAudio').setAttribute('download', `enhanced_${currentJobId.slice(0,8)}.wav`);
+  document.getElementById('downloadTranscriptJson').href = `${base}/transcript?format=json`;
+  document.getElementById('downloadTranscriptTxt').href = `${base}/transcript?format=txt`;
+
+  // Try to load transcript preview
+  if (document.getElementById('transcribeToggle').checked) {
+    try {
+      const tr = await fetch(`${base}/transcript?format=json`);
+      if (tr.ok) {
+        const data = await tr.json();
+        if (data.segments && data.segments.length > 0) {
+          const container = document.getElementById('transcriptSegments');
+          container.innerHTML = data.segments.slice(0, 20).map(seg =>
+            `<div class="transcript-seg">
+              <span class="seg-time">[${fmt(seg.start)}–${fmt(seg.end)}]</span>
+              <span>${seg.text}</span>
+            </div>`
+          ).join('');
+          if (data.segments.length > 20) {
+            container.innerHTML += `<div class="transcript-seg"><span class="seg-time"></span><span style="color:var(--muted)">... ${data.segments.length - 20} more segments in download</span></div>`;
+          }
+          document.getElementById('transcriptPreview').style.display = 'block';
+        }
+      }
+    } catch (_) {}
+  }
+}
+
+function fmt(s) {
+  const m = Math.floor(s / 60);
+  const sec = (s % 60).toFixed(1);
+  return `${m}:${sec.padStart(4,'0')}`;
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+
+function showPanel(id) { document.getElementById(id).classList.add('visible'); }
+function hidePanel(id) { document.getElementById(id).classList.remove('visible'); }
+
+function showError(msg) {
+  const b = document.getElementById('errorBanner');
+  b.textContent = `⚠ ${msg}`;
+  b.classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('errorBanner').classList.remove('visible');
+}
+
+function resetUI() {
+  currentJobId = null;
+  if (pollInterval) clearInterval(pollInterval);
+  hidePanel('results-panel');
+  hidePanel('progress-panel');
+  hideError();
+  document.getElementById('fileSelected').classList.remove('visible');
+  document.getElementById('fileInput').value = '';
+  document.getElementById('processBtn').disabled = true;
+  document.getElementById('transcriptPreview').style.display = 'none';
+  updateProgress(0, '', '');
+}
+</script>
+
+</body>
+</html>
